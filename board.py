@@ -172,16 +172,18 @@ class Board(object):
                 av_moves.append([self.middle_move_coords, av_square])
             return av_moves
 
+        jump_flag = False
         for i in range(self.size):
             for j in range(self.size):
                 if self.grid[i][j].token == self.turn:
                     av_jumps = self.available_jumps([i, j])
                     if av_jumps:
-                        av_squares = av_jumps
-                    else:
-                        av_squares = self.available_squares([i, j])
+                        jump_flag = True
+                    av_squares = self.available_squares([i, j])
                     for av_square in av_squares:
                         av_moves.append([[i, j], av_square])
+        if jump_flag:
+            return [move for move in av_moves if self.is_jump(move[0], move[1])]
         return av_moves
 
     def is_jump(self, start: [int, int], end: [int, int]) -> bool:
@@ -207,18 +209,31 @@ class Board(object):
         row1, col1 = start
         row2, col2 = end
         if not [start, end] in self.available_moves():
-            return
+            raise Exception("Invalid move")
         b = self.copy()
+        b.grid[row2][col2].token = b.grid[row1][col1].token
+        b.grid[row2][col2].is_king = b.grid[row1][col1].is_king
         b.grid[row1][col1].clear()
-        b.grid[row2][col2].token = self.turn
-        if b.available_jumps(end):
+        for i in range(self.size):
+            for j in range(self.size):
+                if i > row1 and i < row2 or i < row1 and i > row2:
+                    if j > col1 and j < col2 or j < col1 and j > col2:
+                        b.grid[i][j].clear()
+        if row2 == 0 or row2 == self.size - 1:
+            b.grid[row2][col2].promote()
+        elif self.is_jump(start, end) and b.available_jumps(end):
             b.is_middle_move = True
             b.middle_move_coords = end
-        else:
-            b.is_middle_move = True
-            b.middle_move_coords = [-1, -1]
-        print(b)
+            return b
+        b.flip_turn()
+        b.is_middle_move = False
+        b.middle_move_coords = [-1, -1]
         return b
+
+    def is_game_over(self) -> bool:
+        if not self.available_moves():
+            return True
+        return False
 
     def __str__(self) -> str:
         """Turn the grid into a board like string
